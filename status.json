@@ -1,0 +1,23 @@
+{
+  "bots": [
+    {"id": "grok", "name": "Grok", "role": "调度总监", "status": "idle", "task": "", "color": "#44aaff"},
+    {"id": "coo", "name": "COO", "role": "运营总监", "status": "idle", "task": "", "color": "#ff8844"},
+    {"id": "artdirector", "name": "美术总监", "role": "美术总监", "status": "idle", "task": "", "color": "#ff44aa"},
+    {"id": "designer", "name": "设计师", "role": "设计师", "status": "idle", "task": "", "color": "#aa44ff"},
+    {"id": "video", "name": "影片生成师", "role": "影片生成师", "status": "idle", "task": "", "color": "#44ffaa"},
+    {"id": "editor", "name": "影片剪辑师", "role": "影片剪辑师", "status": "idle", "task": "", "color": "#aaff44"},
+    {"id": "copy", "name": "写文案", "role": "写文案专员", "status": "idle", "task": "", "color": "#ffaa44"},
+    {"id": "script1", "name": "脚本1", "role": "剧本脚本", "status": "idle", "task": "", "color": "#8844ff"},
+    {"id": "script2", "name": "脚本2", "role": "剧本脚本", "status": "idle", "task": "", "color": "#6644ff"},
+    {"id": "inv1", "name": "调查1", "role": "商品调查员", "status": "idle", "task": "", "color": "#44ff88"},
+    {"id": "inv2", "name": "调查2", "role": "商品调查员", "status": "idle", "task": "", "color": "#44ff66"},
+    {"id": "inv3", "name": "调查3", "role": "商品调查员", "status": "idle", "task": "", "color": "#66ff44"},
+    {"id": "inv4", "name": "调查4", "role": "商品调查员", "status": "idle", "task": "", "color": "#88ff44"},
+    {"id": "inv5", "name": "调查5", "role": "商品调查员", "status": "idle", "task": "", "color": "#aaff44"},
+    {"id": "inv6", "name": "调查6", "role": "商品调查员", "status": "idle", "task": "", "color": "#ccff44"},
+    {"id": "prosecutor", "name": "检察官Claude", "role": "检察官", "status": "idle", "task": "", "color": "#ff4444"},
+    {"id": "defense", "name": "辩护律师Claude", "role": "辩护律师", "status": "idle", "task": "", "color": "#44ff44"},
+    {"id": "judge", "name": "法官Claude", "role": "法官", "status": "idle", "task": "", "color": "#ffdd44"}
+  ],
+  "updated": "2026-11-18T15:20:00Z"
+}
