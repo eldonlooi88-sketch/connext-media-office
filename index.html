@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Connext Media · 3D AI 团队办公室</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #0d1117; font-family: system-ui, -apple-system, sans-serif; }
+    #canvas { width: 100vw; height: 100vh; display: block; }
+    #ui {
+      position: absolute; top: 16px; left: 16px; z-index: 10;
+      background: rgba(13,17,23,0.85); color: #e6edf3; padding: 14px 18px;
+      border-radius: 14px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1);
+      font-size: 14px; max-width: 340px; max-height: 70vh; overflow: auto;
+    }
+    #ui h1 { font-size: 18px; margin-bottom: 4px; color: #58a6ff; }
+    #ui .sub { font-size: 12px; color: #8b949e; margin-bottom: 10px; }
+    #status-list { font-size: 12.5px; line-height: 1.5; }
+    .status-item { margin: 5px 0; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: 0 0 6px currentColor; }
+    #controls {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    }
+    button {
+      background: rgba(33,38,45,0.9); color: #e6edf3; border: 1px solid #30363d;
+      padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 13px;
+      backdrop-filter: blur(8px); transition: all 0.2s;
+    }
+    button:hover { background: #21262d; border-color: #58a6ff; }
+    #info { position: absolute; bottom: 20px; right: 20px; color: #8b949e; font-size: 12px; z-index: 10; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h1>Connext Media</h1>
+    <div class="sub">AI 团队办公室 · 老板 Eldon</div>
+    <div id="status-list">加载中...</div>
+  </div>
+  <div id="controls">
+    <button onclick="toggleDayNight()">昼夜切换</button>
+    <button onclick="toggleDemo()">演示模式</button>
+    <button onclick="resetCamera()">重置视角</button>
+    <button onclick="focusCourt()">看法庭</button>
+  </div>
+  <div id="info">拖拽旋转 · 滚轮缩放 · 手机触控支持</div>
+  <canvas id="canvas"></canvas>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const canvas = document.getElementById('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x161b22);
+    scene.fog = new THREE.Fog(0x161b22, 30, 90);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 300);
+    camera.position.set(28, 22, 32);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2.15;
+    controls.minDistance = 10;
+    controls.maxDistance = 80;
+    controls.target.set(2, 0, 0);
+
+    // Lights
+    const ambient = new THREE.AmbientLight(0x404860, 0.55);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    dirLight.position.set(20, 30, 15);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 80;
+    dirLight.shadow.camera.left = -40;
+    dirLight.shadow.camera.right = 40;
+    dirLight.shadow.camera.top = 40;
+    dirLight.shadow.camera.bottom = -40;
+    scene.add(dirLight);
+    const fill = new THREE.DirectionalLight(0x88aaff, 0.25);
+    fill.position.set(-15, 12, -10);
+    scene.add(fill);
+
+    // Ground
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(100, 100),
+      new THREE.MeshStandardMaterial({ color: 0x1c2128, roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(70, 35, 0x30363d, 0x21262d);
+    grid.position.y = 0.02;
+    scene.add(grid);
+
+    // Room floor helper
+    function addFloor(x, z, w, d, color) {
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x, 0.03, z);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      return mesh;
+    }
+
+    // Simple desk
+    function addDesk(x, z, color = 0x3d4a5c) {
+      const desk = new THREE.Mesh(
+        new THREE.BoxGeometry(1.8, 0.08, 0.9),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.6 })
+      );
+      desk.position.set(x, 0.75, z);
+      desk.castShadow = true;
+      desk.receiveShadow = true;
+      scene.add(desk);
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x2d333b });
+      [[-0.75,0.37],[0.75,0.37],[-0.75,-0.37],[0.75,-0.37]].forEach(([lx,lz]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.08), legMat);
+        leg.position.set(x + lx, 0.35, z + lz);
+        scene.add(leg);
+      });
+    }
+
+    // Create rooms
+    addFloor(-14, -10, 12, 9, 0x2d3a4a);
+    addFloor(2, -12, 14, 9, 0x2a3545);
+    addFloor(16, -4, 16, 12, 0x2a3a2a);
+    addFloor(-10, 12, 14, 9, 0x3a2a2a);
+    addFloor(14, 12, 10, 7, 0x2a2a3a);
+    addFloor(2, 10, 18, 12, 0x3a2a3a);
+
+    // Desks in work area
+    [[12,-6],[15,-6],[18,-6],[12,-3],[15,-3],[18,-3],[12,0],[15,0],[18,0]].forEach(([x,z]) => addDesk(x, z));
+
+    // Meeting table
+    const table = new THREE.Mesh(
+      new THREE.BoxGeometry(6, 0.1, 2.2),
+      new THREE.MeshStandardMaterial({ color: 0x4a3c2a, roughness: 0.5 })
+    );
+    table.position.set(2, 0.75, -12);
+    table.castShadow = true;
+    scene.add(table);
+
+    // Status colors
+    const statusColors = {
+      working: 0x3fb950,
+      thinking: 0xd29922,
+      browsing: 0x58a6ff,
+      help: 0xf85149,
+      idle: 0x8b949e,
+      done: 0xf0c14b
+    };
+
+    // Improved chibi
+    function createChibi(color, name, role) {
+      const group = new THREE.Group();
+      group.userData = { name, role, status: 'idle', task: '空闲中' };
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.62, 20, 20),
+        new THREE.MeshStandardMaterial({ color: 0xffe0c8, roughness: 0.55 })
+      );
+      head.position.y = 1.45;
+      head.castShadow = true;
+      group.add(head);
+
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), eyeMat);
+      eye.position.set(-0.2, 1.52, 0.48);
+      group.add(eye);
+      const eye2 = eye.clone();
+      eye2.position.x = 0.2;
+      group.add(eye2);
+
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.36, 0.55, 6, 12),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.65 })
+      );
+      body.position.y = 0.55;
+      body.castShadow = true;
+      group.add(body);
+
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.75, 0.045, 8, 24),
+        new THREE.MeshStandardMaterial({ color: 0x8b949e, emissive: 0x444444, emissiveIntensity: 0.4 })
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.06;
+      group.add(ring);
+      group.userData.ring = ring;
+
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 72;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'rgba(13,17,23,0.75)';
+      ctx.roundRect?.(0,0,256,72,12) || ctx.fillRect(0,0,256,72);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(name, 128, 46);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+      sprite.scale.set(1.8, 0.5, 1);
+      sprite.position.y = 2.25;
+      group.add(sprite);
+
+      return group;
+    }
+
+    function updateStatus(bot, status, task = '') {
+      const col = statusColors[status] || 0x8b949e;
+      if (bot.userData.ring) {
+        bot.userData.ring.material.color.setHex(col);
+        bot.userData.ring.material.emissive.setHex(col);
+        bot.userData.ring.material.emissiveIntensity = status === 'idle' ? 0.3 : 1.1;
+      }
+      bot.userData.status = status;
+      bot.userData.task = task || (status === 'idle' ? '空闲中' : '处理任务中');
+    }
+
+    // Bots layout
+    const botDefs = [
+      { name: 'Grok', role: '调度总监', color: 0x58a6ff, pos: [-14, 0, -10] },
+      { name: 'COO', role: '运营总监', color: 0xff7b54, pos: [-6, 0, 1] },
+      { name: '美术总监', role: '美术总监', color: 0xff6b9d, pos: [6, 0, 1] },
+      { name: '设计师', role: '设计师', color: 0xb392f0, pos: [12, 0, -5] },
+      { name: '影片生成师', role: '影片生成师', color: 0x3fb950, pos: [15, 0, -3] },
+      { name: '影片剪辑师', role: '影片剪辑师', color: 0x7ee787, pos: [18, 0, -1] },
+      { name: '写文案', role: '写文案专员', color: 0xf0c14b, pos: [12, 0, 2] },
+      { name: '脚本1', role: '剧本脚本', color: 0x9d7cd8, pos: [10, 0, -8] },
+      { name: '脚本2', role: '剧本脚本', color: 0x7c5cdb, pos: [13, 0, -8] },
+      { name: '调查1', role: '商品调查员', color: 0x3fb950, pos: [12, 0, 5] },
+      { name: '调查2', role: '商品调查员', color: 0x56d364, pos: [15, 0, 5] },
+      { name: '调查3', role: '商品调查员', color: 0x7ee787, pos: [18, 0, 5] },
+      { name: '调查4', role: '商品调查员', color: 0xaff5b4, pos: [12, 0, 7] },
+      { name: '调查5', role: '商品调查员', color: 0xc9f7c5, pos: [15, 0, 7] },
+      { name: '调查6', role: '商品调查员', color: 0xe6ffed, pos: [18, 0, 7] },
+      { name: '检察官', role: '检察官Claude', color: 0xf85149, pos: [-5, 0, 10] },
+      { name: '辩护律师', role: '辩护律师Claude', color: 0x3fb950, pos: [5, 0, 10] },
+      { name: '法官', role: '法官Claude', color: 0xf0c14b, pos: [2, 0, 14] },
+    ];
+
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 1.4 - 0.2;
+      botDefs.push({
+        name: `陪审${i+1}`,
+        role: '陪审员',
+        color: 0x8b949e,
+        pos: [2 + Math.cos(a)*6.5, 0, 9 + Math.sin(a)*3.5]
+      });
+    }
+
+    const bots = botDefs.map(def => {
+      const mesh = createChibi(def.color, def.name, def.role);
+      mesh.position.set(def.pos[0], 0, def.pos[2]);
+      scene.add(mesh);
+      updateStatus(mesh, 'idle');
+      return mesh;
+    });
+
+    function addLabel(text, x, y, z, scale = 3.2) {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = 80;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'rgba(13,17,23,0.7)';
+      ctx.fillRect(0,0,320,80);
+      ctx.fillStyle = '#58a6ff';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, 160, 52);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+      sprite.scale.set(scale, 0.8, 1);
+      sprite.position.set(x, y, z);
+      scene.add(sprite);
+    }
+
+    addLabel('总监室', -14, 3.4, -10);
+    addLabel('会议室 · BTC', 2, 3.4, -12);
+    addLabel('开放工位', 16, 3.4, -4);
+    addLabel('休息区', -10, 3.4, 12);
+    addLabel('茶水间', 14, 3.4, 12);
+    addLabel('法庭', 2, 3.4, 10);
+
+    function renderStatusList() {
+      const list = document.getElementById('status-list');
+      list.innerHTML = bots.map(b => {
+        const d = b.userData;
+        const hex = (statusColors[d.status] || 0x8b949e).toString(16).padStart(6, '0');
+        return `<div class="status-item"><span class="dot" style="background:#${hex};color:#${hex}"></span><span>${d.name}</span> · <span style="color:#${hex}">${d.status}</span> · ${d.task}</span></div>`;
+      }).join('');
+    }
+
+    const demoStatuses = ['working','thinking','idle','done','browsing','help'];
+    const demoTasks = ['搜索商品','写脚本','画预览图','审核中','生成影片','写文案','开庭中','投票中','休息中'];
+
+    function randomize() {
+      bots.forEach(bot => {
+        const s = demoStatuses[Math.floor(Math.random() * demoStatuses.length)];
+        const t = demoTasks[Math.floor(Math.random() * demoTasks.length)];
+        updateStatus(bot, s, t);
+      });
+      renderStatusList();
+    }
+
+    let isDay = false;
+    window.toggleDayNight = () => {
+      isDay = !isDay;
+      const bg = isDay ? 0x87ceeb : 0x0d1117;
+      scene.background.set(bg);
+      scene.fog.color.set(bg);
+      ambient.intensity = isDay ? 0.75 : 0.5;
+      dirLight.intensity = isDay ? 1.1 : 0.7;
+    };
+
+    let demoOn = false, demoTimer;
+    window.toggleDemo = () => {
+      demoOn = !demoOn;
+      if (demoOn) {
+        randomize();
+        demoTimer = setInterval(randomize, 2800);
+      } else clearInterval(demoTimer);
+    };
+
+    window.resetCamera = () => {
+      camera.position.set(28, 22, 32);
+      controls.target.set(2, 0, 0);
+    };
+
+    window.focusCourt = () => {
+      camera.position.set(8, 12, 22);
+      controls.target.set(2, 0, 10);
+    };
+
+    randomize();
+    renderStatusList();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      const t = Date.now() * 0.0015;
+      bots.forEach((bot, i) => {
+        bot.position.y = Math.sin(t + i * 0.4) * 0.04;
+      });
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
